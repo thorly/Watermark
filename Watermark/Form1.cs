@@ -8,7 +8,6 @@ using ImageMagick;
 using System.Linq;
 using System.ComponentModel;
 using System.Drawing;
-using System.Threading;
 
 
 namespace Watermark
@@ -82,9 +81,18 @@ namespace Watermark
             #endregion
 
 
+            #region 初始化样式3
+
+            this.numericUpDownLeft3.Value = 0.015M;
+            this.numericUpDownRight3.Value = 0.015M;
+            this.numericUpDownUp3.Value = 0.015M;
+            this.numericUpDownDown3.Value = 0.015M;
+
+            #endregion
+
             //测试用
-            //this.InputTextBox.Text = @"D:\Watermark\jpg";
-            //this.OutputTextBox.Text = @"D:\Watermark\jpg_res";
+            this.InputTextBox.Text = @"D:\Watermark\jpg";
+            this.OutputTextBox.Text = @"D:\Watermark\jpg_res";
 
 
             this.backgroundWorker.WorkerReportsProgress = true;
@@ -145,7 +153,9 @@ namespace Watermark
 
                         #region 参数配置
 
-                        int refValue = Convert.ToInt16(0.015 * Math.Max(width, height));
+                        int maxValue = Math.Max(width, height);
+                        double percent = 0.015;
+                        int refValue = Convert.ToInt16(percent * maxValue);
                         int margin = refValue;   //边缘宽度
                         var watermarkColor = new MagickColor("#ffffff");       //水印边框颜色
 
@@ -397,13 +407,19 @@ namespace Watermark
                         //样式3
                         if (tabPageIndex == "2")
                         {
+                            //获取边框宽度
+                            int leftMargin = Convert.ToInt16(Convert.ToDouble(parm["leftMargin"]) * maxValue);
+                            int rightMargin = Convert.ToInt16(Convert.ToDouble(parm["rightMargin"]) * maxValue);
+                            int upMargin = Convert.ToInt16(Convert.ToDouble(parm["upMargin"]) * maxValue);
+                            int downMargin = Convert.ToInt16(Convert.ToDouble(parm["downMargin"]) * maxValue);
+
                             //创建一张画布，用于放置原始图片和水印
-                            int newImageWidth = width + 2 * margin;
-                            int newImageHeight = height + 2 * margin;
+                            int newImageWidth = width + leftMargin + rightMargin;
+                            int newImageHeight = height + upMargin + downMargin;
 
                             string color = parm["color"];
 
-                            //未设置颜色则使用默认颜色
+                            //未设置颜色则使用白色
                             if (color == "")
                             {
                                 color = "White";
@@ -414,7 +430,7 @@ namespace Watermark
                             using (var newImage = new MagickImage(watermarkColor, newImageWidth, newImageHeight))
                             {
                                 //将原始图片放置于白色画布
-                                newImage.Composite(inputImage, margin, margin);
+                                newImage.Composite(inputImage, leftMargin, upMargin);
 
                                 //将原始图片的exif信息写入到白色画布，防止exif信息丢失
                                 newImage.SetProfile(profile);
@@ -503,7 +519,7 @@ namespace Watermark
 
                 foreach(FileInfo file in files)
                 {
-                    if (file.Extension == ".JPG" || file.Extension == ".JPEG")
+                    if (file.Extension == ".JPG" || file.Extension == ".JPEG" || file.Extension == ".HEIC")
                     {
                         images.Add(inputPath + "\\" + file.Name);
                     }
@@ -638,15 +654,18 @@ namespace Watermark
 
         private void RunButton_Click(object sender, EventArgs e)
         {
+            //重置progressBar的值
             this.progressBar.Value = 0;
 
+            //创建一个字典，用于传输参数
+            Dictionary<string, string> parm = new Dictionary<string, string>
+            {
+                { "input", this.InputTextBox.Text },
+                { "output", this.OutputTextBox.Text },
+                { "flag", this.checkBoxFlag.Checked.ToString() }
+            };
 
-            Dictionary<string, string> parm = new Dictionary<string, string>();
-
-            parm.Add("input", this.InputTextBox.Text);
-            parm.Add("output", this.OutputTextBox.Text);
-            parm.Add("flag", this.checkBoxFlag.Checked.ToString());
-
+            //样式1需要传输的参数
             if (tabControlStyle.SelectedIndex == 0)
             {
                 parm.Add("tabPage", "0");
@@ -657,6 +676,7 @@ namespace Watermark
                 parm.Add("logo", this.comboBoxLogo1.SelectedIndex.ToString());
             }
 
+            //样式2需要传输的参数
             if (tabControlStyle.SelectedIndex == 1)
             {
                 parm.Add("tabPage", "1");
@@ -667,13 +687,21 @@ namespace Watermark
                 parm.Add("font", this.textBoxFont.Text);
             }
 
+            //样式3需要传输的参数
             if (tabControlStyle.SelectedIndex == 2)
             {
                 parm.Add("tabPage", "2");
                 parm.Add("color", this.textBoxColor.Text);
+                parm.Add("leftMargin", this.numericUpDownLeft3.Value.ToString());
+                parm.Add("rightMargin", this.numericUpDownRight3.Value.ToString());
+                parm.Add("upMargin", this.numericUpDownUp3.Value.ToString());
+                parm.Add("downMargin", this.numericUpDownDown3.Value.ToString());
             }
 
+            //开始执行后台操作，并传递参数
             this.backgroundWorker.RunWorkerAsync(parm);
+            
+            //禁用“开始处理”按钮
             this.RunButton.Enabled = false;
         }
 
